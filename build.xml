@@ -1,0 +1,83 @@
+<project name="Metacraft" default="main">
+    <property environment="env"/>
+
+	<target name="git.detail">
+        <exec executable="git" outputproperty="git.time">
+            <arg value="log"/>
+            <arg value="-n1"/>
+            <arg value="--pretty=%at"/>
+        </exec>
+        <exec executable="git" outputproperty="git.commit">
+            <arg value="log"/>
+            <arg value="-n1"/>
+            <arg value="--pretty=%H"/>
+        </exec>
+        <exec executable="git" outputproperty="git.tags">
+            <arg value="tag"/>
+            <arg value="--contains"/>
+            <arg value="${git.commit}"/>
+        </exec>
+        <exec executable="git" outputproperty="git.describe">
+            <arg value="describe"/>
+            <arg value="--dirty"/>
+            <arg value="--always"/>
+            <arg value="--abbrev=0"/>
+            <arg value="--tags"/>
+        </exec>
+        <exec executable="git" outputproperty="git.branch">
+            <arg value="branch"/>
+            <arg value="--no-color"/>
+        </exec>
+		<groovy>
+			//<![CDATA[
+			import java.math.BigInteger;
+			import java.util.Queue;
+			import java.util.ArrayDeque;
+			import java.text.SimpleDateFormat;
+			
+			def time = new Date();
+			def commit = new BigInteger( properties["git.commit"], 16 );
+			def tagLines = properties["git.tags"];
+			Queue<String> tags = new ArrayDeque<>();
+			int tagLinesLen = tagLines.length();
+			if ( tagLines.length() != 0 ) {
+				int cur = 0;
+				int end = 0;
+				for ( ; (end = tagLines.indexOf('\n', end)) != -1; cur = end+1 ) {
+					tags.add( tagLines.substring( cur, tagLines.charAt(end-1) == '\r' ? end-1 : end ) );
+				}
+				if ( end == -1 && (tagLinesLen-1) > cur )
+					tags.add( tagLines.substring( cur, tagLinesLen ) );
+			}
+			properties["git.tagline"] = tags.join('-');
+			def wds = new SimpleDateFormat("YYYY'w'w'd'F").format(time);
+			properties["weekdaystamp"] = wds;
+			def desc = properties["git.describe"];
+			properties["git.describe"] = desc + '-' + wds;  
+			//]]>
+		</groovy>
+    </target>   
+
+    <!-- Package the compiled files -->
+    <target name="package" depends="git.detail">
+    	<fail message="Metacraft-${git.describe}.jar has already been created.">
+	    	<condition>
+	    		<available file="jar/Metacraft-${git.describe}.jar"/>
+	    	</condition>
+    	</fail>
+    	<copy file="src/mcmod.info" toFile="bin/mcmod.info" overwrite="yes">
+    		<filterset begintoken="@" endtoken="@">
+				<filter token="VERSION" value="${git.describe}"/>
+			</filterset>
+    	</copy>
+    	<jar destfile="jar/Metacraft-${git.describe}.jar" level="9" duplicate="preserve">
+        	<fileset dir="bin" />
+        	<fileset dir="src" />
+        </jar>
+
+    </target>
+
+    <!-- Default target to run -->
+    <target name="main" depends="package"/>
+
+</project>
