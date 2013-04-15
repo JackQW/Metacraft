@@ -4,7 +4,7 @@
     "modid": "mod_IronChest",
     "name": "Iron Chest",
     "description": "Crafter craft, if you will.",
-    "version": "@@VERSION@@",
+    "version": "@VERSION@",
     "mcversion": "1.5.1",
     "url": "",
     "updateUrl": "",

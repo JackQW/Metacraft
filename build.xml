@@ -21,7 +21,7 @@
             <arg value="describe"/>
             <arg value="--dirty"/>
             <arg value="--always"/>
-            <arg value="--abbrev=0"/>
+            <arg value="--abbrev=40"/>
             <arg value="--tags"/>
         </exec>
         <exec executable="git" outputproperty="git.branch">
@@ -55,7 +55,11 @@
 			properties["weekdaystamp"] = wds;
 			def desc = properties["git.describe"];
 			if ( desc == commitStr )
-				properties["git.describe"] = wds;  
+				properties["git.describe"] = wds;
+			else if ( desc.endsWith( commitStr ) )
+				properties["git.describe"] = desc.substring( 0, desc.length() - 42 );
+			else if ( desc.endsWith( "-dirty" ) )
+			properties["git.describe"] = desc.substring( 0, desc.length() - 48 ) + '-dirty';
 			//]]>
 		</groovy>
     </target>   
