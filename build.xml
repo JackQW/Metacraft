@@ -36,7 +36,8 @@
 			import java.text.SimpleDateFormat;
 			
 			def time = new Date();
-			def commit = new BigInteger( properties["git.commit"], 16 );
+			def commitStr = properties["git.commit"];
+			def commit = new BigInteger( commitStr, 16 );
 			def tagLines = properties["git.tags"];
 			Queue<String> tags = new ArrayDeque<>();
 			int tagLinesLen = tagLines.length();
@@ -53,7 +54,8 @@
 			def wds = new SimpleDateFormat("YYYY'w'w'd'F").format(time);
 			properties["weekdaystamp"] = wds;
 			def desc = properties["git.describe"];
-			properties["git.describe"] = desc + '-' + wds;  
+			if ( desc == commitStr )
+				properties["git.describe"] = wds;  
 			//]]>
 		</groovy>
     </target>   
