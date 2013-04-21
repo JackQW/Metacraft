@@ -1,0 +1,15 @@
+== Metacraft ==
+
+Crafter crafting for Minecraft!
+
+Utilizes the JVM's native performance, Groovy's AST transform capabilities, the JDK's instrumentation components, and GuiAPI's interface components to provide you with an extremely fast (as fast as just Java!) and secure execution environment on the server!
+
+All allocation and code compilation is tracked and moderated, execution time is constrained, and when things get out of hand, they can be stricken straight away and garbage collected!
+
+You will get to play in a code sandbox, where you only have access to a limited set of features, but you will be doing this inside Minecraft at native speeds! There is no virtual machine on top of the virtual machine!
+
+This mod was inspired by components in RedPower, ComputerCraft, CodeChicken's mods, PowerCrystal's mods, BuildCraft and even components of Forge!
+
+=== THIS IS AN ALPHA STATE OF DEVELOPMENT ===
+
+Currently, this mod is in an alpha state, therefore there are no releases to download and install at the moment. There will be soon, but as of yet there aren't actually any features, just the framework and technology being implemented.
