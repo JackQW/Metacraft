@@ -17,21 +17,25 @@
 	</condition>
 	
 	<target name="git-detail">
+		<echo>git.time</echo>
         <exec executable="git" outputproperty="git.time">
             <arg value="log"/>
             <arg value="-n1"/>
             <arg value="--pretty=%at"/>
         </exec>
+		<echo>git.commit</echo>
         <exec executable="git" outputproperty="git.commit">
             <arg value="log"/>
             <arg value="-n1"/>
             <arg value="--pretty=%H"/>
         </exec>
+		<echo>git.tags</echo>
         <exec executable="git" outputproperty="git.tags">
             <arg value="tag"/>
             <arg value="--contains"/>
             <arg value="${git.commit}"/>
         </exec>
+		<echo>git.describe</echo>
         <exec executable="git" outputproperty="git.describe">
             <arg value="describe"/>
             <arg value="--dirty"/>
@@ -39,10 +43,12 @@
             <arg value="--abbrev=40"/>
             <arg value="--tags"/>
         </exec>
+		<echo>git.branch</echo>
         <exec executable="git" outputproperty="git.branch">
             <arg value="branch"/>
             <arg value="--no-color"/>
         </exec>
+		<echo>groovy</echo>
 		<groovy>
 			//<![CDATA[
 			import java.math.BigInteger;
@@ -131,11 +137,13 @@
 		<condition property="mcp.bin.backed-up">
 			<available file="${forge.dir}/mcp/bin_bkp" />
 		</condition>
-		
-		<condition property="mcp.bin.missing" value="${os.name}" else="derp">
+		<condition property="mcp.bin.missing">
 			<not>
 				<available file="${forge.dir}/mcp/bin" />
 			</not>
+		</condition>
+		<condition property="mcp.bin.missing.os" value="${os.name}" else="derp">
+			<istrue value="${mcp.bin.missing}"/>
 		</condition>
 
 		<fail message="MCP sources missing.">
@@ -148,36 +156,58 @@
 		
 		<mkdir dir="${forge.dir}/mcp/bin" />
         	
-		<echo message="Recompiling if necessary..." />
-        <exec executable="${python}" dir="${mcp.dir}" os="${mcp.bin.missing}">
+		<echo message="Recompiling required? ${mcp.bin.missing}" />
+        <exec executable="${python}" dir="${mcp.dir}" os="${mcp.bin.missing.os}">
             <arg value="${mcp.runtime.dir}/recompile.py"/>
             <arg value="--client"/>
         </exec>
 		
 		<mkdir dir="${forge.dir}/mcp/bin_bkp" />
 
+		<echo message="Have backup? ${mcp.bin.backed-up}" />
 		<copy todir="${forge.dir}/mcp/bin_bkp">
 			<fileset dir="${forge.dir}/mcp/bin">
 				<!-- if it's not backed up, back it up -->
 				<exclude name="**" if="${mcp.bin.backed-up}" />
 			</fileset>
 		</copy>
-		<delete failonerror="false">
-			<fileset dir="${forge.dir}/mcp/bin">
-				<!-- if it's backed up, clean the bin -->
-				<exclude name="**" unless="${mcp.bin.backed-up}" />
+
+		<echo message="Quick-cleaing MCP bin..." />
+		<delete failonerror="false" verbose="yes">
+			<fileset dir="${forge.dir}/mcp/bin/minecraft">
+				<!-- delete if not in the backup, and will not be overwritten -->
+				<and>
+					<present present="srconly" targetdir="bin" />
+					<present present="srconly"
+						targetdir="${forge.dir}/mcp/bin_bkp/minecraft" />
+				</and>
 			</fileset>
 		</delete>
-		<copy todir="${forge.dir}/mcp/bin">
-			<fileset dir="${forge.dir}/mcp/bin_bkp">
-				<!-- if it's backed up, restore the backup -->
-				<exclude name="**" unless="${mcp.bin.backed-up}" />
+
+		<echo message="Quick-restoring MCP bin..." />
+		<copy todir="${forge.dir}/mcp/bin/minecraft">
+			<fileset dir="${forge.dir}/mcp/bin_bkp/minecraft">
+				<or>
+					<present present="srconly" targetdir="${forge.dir}/mcp/bin/minecraft" />
+					<and>
+						<present present="both" targetdir="${forge.dir}/mcp/bin/minecraft" />
+						<modified algorithm="checksum" seldirs="yes" />
+					</and>
+				</or>
 			</fileset>
 		</copy>
-
-		<echo message="Copying compiled classes into MCP..." />
-		<copy todir="${forge.dir}/mcp/bin/minecraft">
-			<fileset dir="bin" />
+		
+		<echo message="Copying changed classes into MCP..." />
+		<copy todir="${forge.dir}/mcp/bin/minecraft" verbose="yes">
+			<fileset dir="bin" includes="**/*.class">
+				<or>
+					<present present="srconly" targetdir="${forge.dir}/mcp/bin/minecraft" />
+					<and>
+						<present present="both" targetdir="${forge.dir}/mcp/bin/minecraft" />
+						<modified algorithm="checksum" seldirs="yes" />
+					</and>
+				</or>
+			</fileset>
 		</copy>
 		
 		<echo message="Reobfuscating..." />
@@ -187,12 +217,24 @@
         	<arg value="--srgnames"/>
         </exec>
 		
-
-		<echo message="Copying reobfuscated classes into project..." />
-		<delete dir="jar/build" failonerror="false" />
-		<mkdir dir="jar/build" />
-		<copy todir="jar/build">
-			<fileset dir="${forge.dir}/mcp/reobf/minecraft" />
+		<mkdir dir="reobf" />
+		<echo message="Cleaning reobfuscation cache..." />
+		<delete failonerror="false" verbose="yes">
+			<fileset dir="reobf">
+				<present present="srconly" targetdir="${forge.dir}/mcp/reobf/minecraft" />
+			</fileset>
+		</delete>
+		<echo message="Copying reobfuscated classes to project..." />
+		<copy todir="reobf" verbose="yes">
+			<fileset dir="${forge.dir}/mcp/reobf/minecraft">
+				<or>
+					<present present="srconly" targetdir="reobf" />
+					<and>
+						<present present="both" targetdir="reobf" />
+						<modified algorithm="checksum" seldirs="yes" />
+					</and>
+				</or>
+			</fileset>
 		</copy>
 	</target>
     <target name="package" depends="set-version,reobfuscate">
@@ -205,9 +247,13 @@
 	    	</condition>
     	</fail>
     	<jar destfile="jar/Metacraft-${git.describe}.jar" level="9" duplicate="preserve">
-			<fileset dir="jar/build" />
-    		<fileset dir="bin" />
-        	<fileset dir="src" />
+			<fileset dir="reobf" />
+    		<fileset dir="bin">
+    			<not><present present="both" targetdir="reobf" /></not>
+    		</fileset>
+        	<fileset dir="src">
+    			<not><present present="both" targetdir="bin" /></not>
+        	</fileset>
         </jar>
     </target>
 	<!-- Perform forge install, copy source to mcp/src, recompile/obfuscate, package to jar -->

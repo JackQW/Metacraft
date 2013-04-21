@@ -33,7 +33,6 @@ public class MetacraftMod {
 	public static ModMetadata metadata;
 	public static File configDir;
 	public static final String modid = "Metacraft";
-	public static final String version = "1.5.1";
 	public static Instrumentation inst = null;
 	
 	public static Block b = null;

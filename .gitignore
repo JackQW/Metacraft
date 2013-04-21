@@ -5,3 +5,5 @@
 /javadoc
 
 /.groovy
+/reobf
+/cache.properties
