@@ -1,18 +1,11 @@
-{
-  "modinfoversion": 2,
-  "modlist": [{
-    "modid": "mod_IronChest",
-    "name": "Iron Chest",
-    "description": "Crafter craft, if you will.",
-    "version": "@VERSION@",
-    "mcversion": "1.5.1",
-    "url": "",
-    "updateUrl": "",
-    "authors": [ "JackQW" ],
-    "credits": "Authored by JackQW",
-    "logoFile": "",
-    "screenshots": [ "", ],
-    "requiredMods": [ "Forge", "MOAPI", "GuiAPI" ],
-    "useDependencyInformation": "true"
-  }]
-}
+[{
+  "modid": "Metacraft",
+  "name": "Metacraft",
+  "description": "Crafter craft, if you will.",
+  "version": "@VERSION@",
+  "mcversion": "1.5.1",
+  "url": "http://www.minecraftforum.net/",
+  "updateUrl": "http://www.minecraftforum.net/",
+  "authors": ["JackQW"],
+  "requiredMods": ["Forge", "GuiAPI"]
+}]

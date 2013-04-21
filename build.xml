@@ -1,7 +1,9 @@
 <project name="Metacraft" default="main">
     <property environment="env"/>
 
-	<target name="git.detail">
+	<property name="forge.dir" value="../forge"/>
+
+	<target name="git-detail">
         <exec executable="git" outputproperty="git.time">
             <arg value="log"/>
             <arg value="-n1"/>
@@ -34,7 +36,6 @@
 			import java.util.Queue;
 			import java.util.ArrayDeque;
 			import java.text.SimpleDateFormat;
-			
 			def time = new Date();
 			def commitStr = properties["git.commit"];
 			def commit = new BigInteger( commitStr, 16 );
@@ -54,36 +55,57 @@
 			def wds = new SimpleDateFormat("YYYY'w'w'd'F").format(time);
 			properties["weekdaystamp"] = wds;
 			def desc = properties["git.describe"];
-			if ( desc == commitStr )
+			properties["git.dirty"] = "no";
+			if ( desc == commitStr ) {
 				properties["git.describe"] = wds;
-			else if ( desc.endsWith( commitStr ) )
-				properties["git.describe"] = desc.substring( 0, desc.length() - 42 );
-			else if ( desc.endsWith( "-dirty" ) )
-			properties["git.describe"] = desc.substring( 0, desc.length() - 48 ) + '-dirty';
+				properties["git.version"] = wds; 
+			} else if ( desc.endsWith( commitStr ) ) {
+				def vs = desc.substring( 0, desc.length() - 42 );
+				properties["git.describe"] = vs;
+				properties["git.version"] = vs;
+			} else if ( desc.endsWith( "-dirty" ) ) {
+				properties["git.dirty"] = "yes";
+				if ( desc.length() > 40 ) {
+					def vs = desc.substring( 0, desc.length() - 48 );
+					properties["git.describe"] = vs + '-dirty';
+					properties["git.version"] = vs;
+				} else {
+					properties["git.version"] = desc.substring( 0, desc.length() - 6 );
+				}
+			}
+			println "git.describe = ${properties['git.describe']}";
+			println "git.version = ${properties['git.version']}";
+			println "weekdaystamp = ${properties['weekdaystamp']}";
+			println "git.tagline = ${properties['git.tagline']}";
+			println "git.commit = ${properties['git.commit']}";
 			//]]>
 		</groovy>
-    </target>   
-
-    <!-- Package the compiled files -->
-    <target name="package" depends="git.detail">
+    </target>
+	<target name="set-version" depends="git-detail">
+		<copy file="src/mcmod.info" todir="bin" overwrite="yes">
+			<filterset begintoken="@" endtoken="@">
+				<filter token="VERSION" value="${git.version}"/>
+			</filterset>
+		</copy>
+	    <propertyfile file="bin/version.properties">
+	      <entry key="Metacraft.version" type="string" value="${git.describe}-${weekdaystamp}-${git.commit}"/>
+	    </propertyfile>
+	</target>
+    <target name="package" depends="set-version">
     	<fail message="Metacraft-${git.describe}.jar has already been created.">
 	    	<condition>
-	    		<available file="jar/Metacraft-${git.describe}.jar"/>
+	    		<and>
+	    			<isfalse value="${git.dirty}" />
+	    	    	<available file="jar/Metacraft-${git.describe}.jar"/>
+	    		</and>
 	    	</condition>
     	</fail>
-    	<copy file="src/mcmod.info" toFile="bin/mcmod.info" overwrite="yes">
-    		<filterset begintoken="@" endtoken="@">
-				<filter token="VERSION" value="${git.describe}"/>
-			</filterset>
-    	</copy>
     	<jar destfile="jar/Metacraft-${git.describe}.jar" level="9" duplicate="preserve">
         	<fileset dir="bin" />
         	<fileset dir="src" />
         </jar>
-
     </target>
-
-    <!-- Default target to run -->
+	<!-- Perform forge install, copy source to mcp/src, recompile/obfuscate, package to jar -->
     <target name="main" depends="package"/>
 
 </project>
