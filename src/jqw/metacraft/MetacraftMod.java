@@ -3,8 +3,11 @@ package jqw.metacraft;
 //import net.minecraft.src.PlayerAPI;
 import java.io.File;
 import java.io.IOException;
+import java.lang.instrument.Instrumentation;
 import java.lang.reflect.InvocationTargetException;
 import java.util.logging.Logger;
+
+import net.minecraft.block.Block;
 
 import jqw.util.InstrumentationExposer;
 import cpw.mods.fml.common.Mod;
@@ -31,6 +34,9 @@ public class MetacraftMod {
 	public static File configDir;
 	public static final String modid = "Metacraft";
 	public static final String version = "1.5.1";
+	public static Instrumentation inst = null;
+	
+	public static Block b = null;
 
 	@Instance(modid)
 	public static MetacraftMod instance;
@@ -55,6 +61,8 @@ public class MetacraftMod {
     public void onPostInit(@SuppressWarnings("unused") FMLPostInitializationEvent event) throws InstantiationException, IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException, NullPointerException, IOException
     {
     	logger.info("Post-Initializing Metacraft...");
-    	InstrumentationExposer.getInstrumentation(logger);
+    	inst = InstrumentationExposer.getInstrumentation(logger);
+    	
+    	logger.info("size of this:" + inst.getObjectSize(this) );
     }
 }

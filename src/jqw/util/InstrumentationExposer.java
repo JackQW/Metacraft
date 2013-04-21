@@ -35,6 +35,7 @@ public class InstrumentationExposer {
 	@Nullable
 	static Logger logger = null;
 
+	@NonNullable
 	static final String os = System.getProperty("os.name").toLowerCase();
 
 	static final int Win = 0;
@@ -51,13 +52,15 @@ public class InstrumentationExposer {
 						? Win
 						: -1;
 
+	@NonNullable
 	static final String nativeAttachProviderClassName =
 			sysTypeId == Lnx || sysTypeId == Mac
 					? "sun.tools.attach.LinuxAttachProvider"
 					: sysTypeId == Win
 						? "sun.tools.attach.WindowsAttachProvider"
 						: "sun.tools.attach.SolarisAttachProvider";
-	
+
+	@NonNullable
 	static final String nativeVirtualMachineClassName =
 			sysTypeId == Lnx || sysTypeId == Mac
 			? "sun.tools.attach.LinuxVirtualMachine"
@@ -65,6 +68,7 @@ public class InstrumentationExposer {
 				? "sun.tools.attach.WindowsVirtualMachine"
 				: "sun.tools.attach.SolarisVirtualMachine";
 
+	@NonNullable
 	static final String[] toolClassNames = new String[] {
 		"com.sun.tools.attach.AttachNotSupportedException",
 		"com.sun.tools.attach.AgentInitializationException",
@@ -79,20 +83,32 @@ public class InstrumentationExposer {
 		nativeVirtualMachineClassName
 	};
 
-	public static final Class<?>[] urlClassArg = new Class<?>[] { URL.class };
-	public static final Class<?>[] classArg = new Class<?>[] { Class.class };
+	@NonNullable
+	static final Class<?>[] urlClassArg = new Class<?>[] { URL.class };
 	
-	static final Map<String,Class<?>> toolClassMap = new HashMap<>();
+	@NonNullable
+	static final Class<?>[] classArg = new Class<?>[] { Class.class };
 
+	@NonNullable
+	static final Map<String,Class<?>> toolClassMap = new HashMap<>();
+	
+	@NonNullable
+	static final Map<String,Class<?>> sclOverrideMap = new HashMap<>();
+
+	@NonNullable
     static final Manifest manifest = new Manifest();
+    
 	@Nullable
 	static Instrumentation ginst = null;
 	
     
 
+	@NonNullable
 	static final Class<InstrumentationExposer> getStaticClass() {
 		return InstrumentationExposer.class;
 	}
+	
+	static boolean initd = false;
 	
 	public static void Init(@Nullable Logger l) throws IOException {
 		logger = l;
@@ -138,10 +154,14 @@ public class InstrumentationExposer {
 		try {
 			Field fscl = clc.getDeclaredField("scl");
 			fscl.setAccessible(true);
+			
+			@NonNullable
+			Map<String,Class<?>> om = NonNull.value(sclOverrideMap);
+			om.put(getStaticClass().getName(),getStaticClass());
 
-			@NonNullable @SuppressWarnings("resource")
+			@NonNullable @SuppressWarnings( "resource" )
 			final HookedSystemClassLoader hscl =
-				new HookedSystemClassLoader(logger);
+				new HookedSystemClassLoader(logger, om);
 			
 			fscl.set(null, hscl);
 			Method mResolveClass = clc.getDeclaredMethod("resolveClass", classArg);
@@ -150,29 +170,28 @@ public class InstrumentationExposer {
 		} catch ( Throwable t ) {
 			throw new RuntimeException( "Failed to resolve self in class loader.", t );
 		}
+		
+		initd = true;
 	}
 	
     static final @NonNullable File generateAgentJar() throws NullPointerException, IOException {
-        // Prepare generated jar output file
     	@NonNullable
-    	final String classSmplName = NonNull.value(getStaticClass().getSimpleName());
+    	final String classSmplName =
+    		NonNull.value(getStaticClass().getSimpleName());
     	@NonNullable
-        final File jarFile = NonNull.value(File.createTempFile(classSmplName, ".jar"));
+        final File jarFile =
+        	NonNull.value(File.createTempFile(classSmplName, ".jar"));
 
     	try ( @NonNullable final FileOutputStream jarFos =
     			new FileOutputStream(jarFile) ) {
-    	
-	        // Prepare jar output stream
 	        try ( @NonNullable final JarOutputStream jarOS =
 	        		new JarOutputStream(jarFos, manifest) ) {
-	
-		        // Return generated jar file
 		        return jarFile;
 	        }
     	}
     }
     
-	public static final String getPid() {
+	static final String getPid() {
 		@NonNullable
 		final RuntimeMXBean bean = NonNull.value( ManagementFactory.getRuntimeMXBean() );
         @NonNullable
@@ -184,12 +203,36 @@ public class InstrumentationExposer {
 
         return pid;
 	}
-	
+
+	/**
+	 * Provides a convenience method to access getInstrumentation without passing a Logger.
+	 * @see InstrumentationExposer#getInstrumentation(Logger)
+	 */
 	public static final Instrumentation getInstrumentation() throws InstantiationException, IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException, NullPointerException, IOException {
 		return getInstrumentation(null);
 	}
 	
+	/**
+	 * Accessor for an instance of the {@link Instrumentation} class.
+	 * Prepares a native AttachProvider for the JVM.
+	 * Loads the default JVMTI attach agent, and has it enter the process.
+	 * Upon success, receives the instrumentation instance.
+	 * @TODO Test under environments other than Windows.
+	 * @warning Will not work under a non-JDK java.home!
+	 * @param l
+	 * @return {@link Instrumentation} The instrumentation instance given by the agent.
+	 * @throws InstantiationException
+	 * @throws IllegalAccessException
+	 * @throws NoSuchMethodException
+	 * @throws SecurityException
+	 * @throws IllegalArgumentException
+	 * @throws InvocationTargetException
+	 * @throws NullPointerException
+	 * @throws IOException
+	 */
 	public static final Instrumentation getInstrumentation(@Nullable Logger l) throws InstantiationException, IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException, NullPointerException, IOException {
+		if ( !initd ) Init(l);
+		
 		Instrumentation inst = ginst;
 		if ( inst != null )
 			return inst;

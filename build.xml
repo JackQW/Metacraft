@@ -1,8 +1,21 @@
 <project name="Metacraft" default="main">
     <property environment="env"/>
 
-	<property name="forge.dir" value="../forge"/>
+	<property name="forge.dir" location="../forge"/>
 
+	<property name="mcp.dir" location="${forge.dir}/mcp" />
+	<property name="mcp.runtime.dir" location="${mcp.dir}/runtime" />
+	<property name="python-win" location="${mcp.runtime.dir}/bin/python/python_mcp.exe" />
+	<condition property="python" value="${python-win}" else="python">
+		<os family="windows" />
+	</condition>
+	<condition property=".batsh" value=".bat" else=".sh">
+		<os family="windows" />
+	</condition>
+	<condition property=".cmdsh" value=".cmd" else=".sh">
+		<os family="windows" />
+	</condition>
+	
 	<target name="git-detail">
         <exec executable="git" outputproperty="git.time">
             <arg value="log"/>
@@ -81,6 +94,29 @@
 			//]]>
 		</groovy>
     </target>
+    <target name="javadoc" depends="git-detail">
+    	<fail message="Metacraft-${git.describe}-docs.jar has already been created.">
+	    	<condition>
+	    		<and>
+	    			<isfalse value="${git.dirty}" />
+	    	    	<available file="jar/Metacraft-${git.describe}-docs.jar"/>
+	    		</and>
+	    	</condition>
+    	</fail>
+    	<echo message="GROOVY_HOME = ${env.GROOVY_HOME}" />
+        <javadoc access="protected" author="true"
+			classpath="${env.GROOVY_HOME}\lib\groovy-2.1.2.jar;../forge/mcp/jars/bin/lwjgl.jar;../GuiAPI/bin;../GuiAPI/twl/bin;../forge/mcp/eclipse/Minecraft/bin;../forge/mcp/jars/bin/minecraft.jar;../GuiAPI/xpp3-1.1.4c;../forge/mcp/jars/bin/lwjgl_util.jar"
+			destdir="javadoc" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" packagenames="jqw.metacraft.client,jqw.util,jqw.metacraft"
+			source="1.7" sourcepath="src" splitindex="true" use="true" version="true">
+        	<doctitle>Metacraft ${git.version}</doctitle>
+        	<tag name="forbidden" description="Usage is forbidden." />
+        	<tag name="warning" description="Warning: " />
+        	<tag name="TODO" description="TODO: " />
+    	</javadoc>
+    	<jar destfile="jar/Metacraft-${git.describe}-docs.jar" level="9" duplicate="preserve">
+        	<fileset dir="javadoc" />
+        </jar>
+    </target>
 	<target name="set-version" depends="git-detail">
 		<copy file="src/mcmod.info" todir="bin" overwrite="yes">
 			<filterset begintoken="@" endtoken="@">
@@ -91,17 +127,86 @@
 	      <entry key="Metacraft.version" type="string" value="${git.describe}-${weekdaystamp}-${git.commit}"/>
 	    </propertyfile>
 	</target>
-    <target name="package" depends="set-version">
+	<target name="reobfuscate">
+		<condition property="mcp.bin.backed-up">
+			<available file="${forge.dir}/mcp/bin_bkp" />
+		</condition>
+		
+		<condition property="mcp.bin.missing" value="${os.name}" else="derp">
+			<not>
+				<available file="${forge.dir}/mcp/bin" />
+			</not>
+		</condition>
+
+		<fail message="MCP sources missing.">
+			<condition>
+				<not>
+					<available file="${forge.dir}/mcp/src" />
+				</not>
+			</condition>
+		</fail>
+		
+		<mkdir dir="${forge.dir}/mcp/bin" />
+        	
+		<echo message="Recompiling if necessary..." />
+        <exec executable="${python}" dir="${mcp.dir}" os="${mcp.bin.missing}">
+            <arg value="${mcp.runtime.dir}/recompile.py"/>
+            <arg value="--client"/>
+        </exec>
+		
+		<mkdir dir="${forge.dir}/mcp/bin_bkp" />
+
+		<copy todir="${forge.dir}/mcp/bin_bkp">
+			<fileset dir="${forge.dir}/mcp/bin">
+				<!-- if it's not backed up, back it up -->
+				<exclude name="**" if="${mcp.bin.backed-up}" />
+			</fileset>
+		</copy>
+		<delete failonerror="false">
+			<fileset dir="${forge.dir}/mcp/bin">
+				<!-- if it's backed up, clean the bin -->
+				<exclude name="**" unless="${mcp.bin.backed-up}" />
+			</fileset>
+		</delete>
+		<copy todir="${forge.dir}/mcp/bin">
+			<fileset dir="${forge.dir}/mcp/bin_bkp">
+				<!-- if it's backed up, restore the backup -->
+				<exclude name="**" unless="${mcp.bin.backed-up}" />
+			</fileset>
+		</copy>
+
+		<echo message="Copying compiled classes into MCP..." />
+		<copy todir="${forge.dir}/mcp/bin/minecraft">
+			<fileset dir="bin" />
+		</copy>
+		
+		<echo message="Reobfuscating..." />
+        <exec executable="${python}" dir="${mcp.dir}">
+            <arg value="${mcp.runtime.dir}/reobfuscate.py"/>
+            <arg value="--client"/>
+        	<arg value="--srgnames"/>
+        </exec>
+		
+
+		<echo message="Copying reobfuscated classes into project..." />
+		<delete dir="jar/build" failonerror="false" />
+		<mkdir dir="jar/build" />
+		<copy todir="jar/build">
+			<fileset dir="${forge.dir}/mcp/reobf/minecraft" />
+		</copy>
+	</target>
+    <target name="package" depends="set-version,reobfuscate">
     	<fail message="Metacraft-${git.describe}.jar has already been created.">
 	    	<condition>
 	    		<and>
 	    			<isfalse value="${git.dirty}" />
-	    	    	<available file="jar/Metacraft-${git.describe}.jar"/>
+	    	    	<available file="jar/Metacraft-${git.describe}.jar" />
 	    		</and>
 	    	</condition>
     	</fail>
     	<jar destfile="jar/Metacraft-${git.describe}.jar" level="9" duplicate="preserve">
-        	<fileset dir="bin" />
+			<fileset dir="jar/build" />
+    		<fileset dir="bin" />
         	<fileset dir="src" />
         </jar>
     </target>
